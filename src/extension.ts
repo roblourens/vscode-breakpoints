@@ -25,7 +25,7 @@ interface SerializedBreakpoint {
     logMessage?: string;
 
     // SourceBreakpoint
-    path?: string;
+    path?: string; // absolute path or ${workspaceFolder:myFolder}/foo/bar.js
     position?: { line: number, character: number };
 
     // FunctionBreakpoint
@@ -52,6 +52,8 @@ async function exportBreakpoints(): Promise<void> {
 
     if (bpFileLocation) {
         await writeFileP(bpFileLocation, JSON.stringify(exportedBps, undefined, '  '));
+    } else {
+        console.log(JSON.stringify(exportedBps, undefined, '  '));
     }
 }
 
@@ -88,7 +90,7 @@ function serializeBreakpoint(bp: CodeBreakpoint): SerializedBreakpoint {
         logMessage: bp.logMessage,
         ...(bp instanceof vscode.SourceBreakpoint ?
             {
-                path: bp.location.uri.fsPath,
+                path: serializeBreakpointPath(bp),
                 position: bp.location.range.start
             } :
             {
@@ -97,10 +99,19 @@ function serializeBreakpoint(bp: CodeBreakpoint): SerializedBreakpoint {
     };
 }
 
+function serializeBreakpointPath(bp: vscode.SourceBreakpoint): string {
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(bp.location.uri);
+    if (!workspaceFolder) {
+        return bp.location.uri.fsPath;
+    }
+
+    return vscode.workspace.asRelativePath(bp.location.uri, true);
+}
+
 function deserializeBreakpoint(serializedBp: SerializedBreakpoint): CodeBreakpoint {
     return serializedBp.path ?
         new vscode.SourceBreakpoint(
-            new vscode.Location(vscode.Uri.file(serializedBp.path), new vscode.Position(serializedBp.position!.line, serializedBp.position!.character)),
+            new vscode.Location(deserializeBreakpointPath(serializedBp.path), new vscode.Position(serializedBp.position!.line, serializedBp.position!.character)),
             serializedBp.enabled,
             serializedBp.condition,
             serializedBp.hitCondition,
@@ -111,6 +122,37 @@ function deserializeBreakpoint(serializedBp: SerializedBreakpoint): CodeBreakpoi
             serializedBp.condition,
             serializedBp.hitCondition,
             serializedBp.logMessage);
+}
+
+function deserializeBreakpointPath(_path: string): vscode.Uri {
+    if (path.isAbsolute(_path)) {
+        return vscode.Uri.file(_path);
+    }
+
+    const [folderName, ...rest] = _path.split(/[\/\\]/);
+    const folder = getWorkspaceFolder(folderName);
+    if (!folder) {
+        // Breakpoint path is not absolute, but can't be resolved in a workspace folder
+        throw new Error(`Breakpoint at ${_path} could not be resolved to a file in the current workspace`);
+    }
+
+    const relativePath = rest.join('/');
+    return vscode.Uri.file(
+        path.join(folder.uri.fsPath, relativePath));
+}
+
+function getWorkspaceFolder(name: string): Maybe<vscode.WorkspaceFolder> {
+    if (!vscode.workspace.workspaceFolders) {
+        return undefined;
+    }
+
+    for (let folder of vscode.workspace.workspaceFolders) {
+        if (folder.name === name) {
+            return folder;
+        }
+    }
+
+    return undefined;
 }
 
 export function deactivate() {
