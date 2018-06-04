@@ -1,10 +1,11 @@
+import { promisify } from 'es6-promisify';
 import * as path from 'path';
 import * as fs from 'fs';
-
 import * as vscode from 'vscode';
+import { POINT_CONVERSION_COMPRESSED } from 'constants';
 
-import { promisify } from 'es6-promisify';
 const writeFileP: (filename: string, data: any) => Promise<void> = promisify(fs.writeFile);
+const readFileP = promisify(fs.readFile);
 
 type Maybe<T> = T | null | undefined;
 
@@ -35,28 +36,52 @@ interface IExportedBreakpoints {
     breakpoints: SerializedBreakpoint[];
 }
 
-const BP_EXPORT_PATH_IN_WORKSPACE = '.vscode/breakpoints.json';
-
 export function activate(context: vscode.ExtensionContext) {
-    context.subscriptions.push(
-        vscode.commands.registerCommand('vscode-breakpoints.exportBreakpoints', async () => {
-            const exportedBps: IExportedBreakpoints = {
-                breakpoints: vscode.debug.breakpoints.map(bp => serializeBreakpoint(bp as CodeBreakpoint))
-            };
+    context.subscriptions.push(vscode.commands.registerCommand('vscode-breakpoints.exportBreakpoints', exportBreakpoints));
+    context.subscriptions.push(vscode.commands.registerCommand('vscode-breakpoints.importBreakpoints', importBreakpoints));
+}
 
-            // const folder = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
-            let bpFileLocation: Maybe<string>;
-            // if (folder && folder.uri.scheme === 'file') {
-            //     bpFileLocation = path.join(folder.uri.fsPath, BP_EXPORT_PATH_IN_WORKSPACE);
-            // } else {
-                const saveUri = await vscode.window.showSaveDialog({ filters: { 'JSON': ['json'] } });
-                bpFileLocation = saveUri && saveUri.fsPath;
-            // }
+async function exportBreakpoints(): Promise<void> {
+    const exportedBps: IExportedBreakpoints = {
+        breakpoints: vscode.debug.breakpoints.map(bp => serializeBreakpoint(bp as CodeBreakpoint))
+    };
 
-            if (bpFileLocation) {
-                await writeFileP(bpFileLocation, JSON.stringify(exportedBps, undefined, '  '));
-            }
-        }));
+    let bpFileLocation: Maybe<string>;
+    const saveUri = await vscode.window.showSaveDialog({ filters: { 'JSON': ['json'] } });
+    bpFileLocation = saveUri && saveUri.fsPath;
+
+    if (bpFileLocation) {
+        await writeFileP(bpFileLocation, JSON.stringify(exportedBps, undefined, '  '));
+    }
+}
+
+async function importBreakpoints(): Promise<void> {
+    // Ask user for file
+    // Load breakpoints from file
+    // Add breakpoints to vscode
+
+    const breakpointsFiles = await vscode.window.showOpenDialog({
+        canSelectFiles: true,
+        canSelectFolders: false,
+        canSelectMany: false
+    });
+    if (!breakpointsFiles) {
+        return;
+    }
+
+    const breakpointFile = breakpointsFiles[0];
+    const fileBuffer = await readFileP(breakpointFile.fsPath);
+
+    let fileContents: IExportedBreakpoints;
+    try {
+        fileContents = JSON.parse(fileBuffer.toString());
+    } catch (e) {
+        const fileName = path.basename(breakpointFile.fsPath);
+        throw new Error(`Invalid JSON in ${fileName}: ${e.message}`);
+    }
+
+    const codeBps = fileContents.breakpoints.map(deserializeBreakpoint);
+    vscode.debug.addBreakpoints(codeBps);
 }
 
 function serializeBreakpoint(bp: CodeBreakpoint): SerializedBreakpoint {
@@ -74,6 +99,22 @@ function serializeBreakpoint(bp: CodeBreakpoint): SerializedBreakpoint {
                 functionName: bp.functionName
             })
     };
+}
+
+function deserializeBreakpoint(serializedBp: SerializedBreakpoint): CodeBreakpoint {
+    return serializedBp.path ?
+        new vscode.SourceBreakpoint(
+            new vscode.Location(vscode.Uri.file(serializedBp.path), new vscode.Position(serializedBp.position!.line, serializedBp.position!.character)),
+            serializedBp.enabled,
+            serializedBp.condition,
+            serializedBp.hitCondition,
+            serializedBp.logMessage) :
+        new vscode.FunctionBreakpoint(
+            serializedBp.functionName!,
+            serializedBp.enabled,
+            serializedBp.condition,
+            serializedBp.hitCondition,
+            serializedBp.logMessage);
 }
 
 export function deactivate() {

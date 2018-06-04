@@ -11,7 +11,8 @@
         "Other"
     ],
     "activationEvents": [
-        "onCommand:vscode-breakpoints.exportBreakpoints"
+        "onCommand:vscode-breakpoints.exportBreakpoints",
+        "onCommand:vscode-breakpoints.importBreakpoints"
     ],
     "main": "./out/extension",
     "contributes": {
@@ -19,6 +20,10 @@
             {
                 "command": "vscode-breakpoints.exportBreakpoints",
                 "title": "Export Breakpoints"
+            },
+            {
+                "command": "vscode-breakpoints.importBreakpoints",
+                "title": "Import Breakpoints"
             }
         ]
     },
