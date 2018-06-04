@@ -19,7 +19,7 @@ type Maybe<T> = T | null | undefined;
 
 type CodeBreakpoint = vscode.SourceBreakpoint | vscode.FunctionBreakpoint;
 interface SerializedBreakpoint {
-    enabled: boolean;
+    enabled?: boolean;
     condition?: string;
     hitCondition?: string;
     logMessage?: string;
@@ -56,10 +56,6 @@ async function exportBreakpoints(): Promise<void> {
 }
 
 async function importBreakpoints(): Promise<void> {
-    // Ask user for file
-    // Load breakpoints from file
-    // Add breakpoints to vscode
-
     const breakpointsFiles = await vscode.window.showOpenDialog({
         canSelectFiles: true,
         canSelectFolders: false,
@@ -86,7 +82,7 @@ async function importBreakpoints(): Promise<void> {
 
 function serializeBreakpoint(bp: CodeBreakpoint): SerializedBreakpoint {
     return {
-        enabled: bp.enabled,
+        enabled: bp.enabled ? undefined : bp.enabled,
         condition: bp.condition,
         hitCondition: bp.hitCondition,
         logMessage: bp.logMessage,

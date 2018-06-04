@@ -1,6 +1,6 @@
 {
     "name": "vscode-breakpoints",
-    "displayName": "vscode-breakpoints",
+    "displayName": "VS Code BPs",
     "description": "An extension for managing breakpoints in vscode",
     "version": "0.0.1",
     "publisher": "roblourens",
@@ -19,11 +19,11 @@
         "commands": [
             {
                 "command": "vscode-breakpoints.exportBreakpoints",
-                "title": "Export Breakpoints"
+                "title": "BPs: Export Breakpoints"
             },
             {
                 "command": "vscode-breakpoints.importBreakpoints",
-                "title": "Import Breakpoints"
+                "title": "BPs: Import Breakpoints"
             }
         ]
     },
