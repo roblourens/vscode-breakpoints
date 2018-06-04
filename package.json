@@ -11,14 +11,14 @@
         "Other"
     ],
     "activationEvents": [
-        "onCommand:extension.sayHello"
+        "onCommand:vscode-breakpoints.exportBreakpoints"
     ],
     "main": "./out/extension",
     "contributes": {
         "commands": [
             {
-                "command": "extension.sayHello",
-                "title": "Hello World"
+                "command": "vscode-breakpoints.exportBreakpoints",
+                "title": "Export Breakpoints"
             }
         ]
     },
@@ -35,5 +35,9 @@
         "tslint": "^5.8.0",
         "@types/node": "^7.0.43",
         "@types/mocha": "^2.2.42"
+    },
+    "dependencies": {
+        "@types/es6-promisify": "^6.0.0",
+        "es6-promisify": "^6.0.0"
     }
 }
